@@ -44,10 +44,12 @@ private:
 	float maxDx;
 	float maxDy;
 
+	bool dead;
+
 public:
 	Entity(Game* game, EntityType type, int x, int y);
 
-
+	bool IsAlive();
 	float GetX();
 	float GetY();
 	float GetCX();
@@ -63,6 +65,9 @@ public:
 	void Update(float dt);
 
 	void Draw(sf::RenderWindow& window);
+
+	void Kill();
+	void Reset();
 
 	bool CollidesWith(sf::Sprite other);
 };

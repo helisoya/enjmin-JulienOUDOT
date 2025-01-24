@@ -34,6 +34,9 @@ public:
 
 	Entity* player;
 	std::vector<Entity*> entities;
+	std::vector<Vector2i> elkSpawns;
+
+	sf::View view;
 
 	sf::VertexArray deathRayLines;
 	bool drawDeathRay;
@@ -59,6 +62,7 @@ public:
 
 	void draw(sf::RenderWindow& win);
 
+	bool isEnnemySpawner(int cx, int cy);
 	bool isWall(int cx, int cy);
 	void im();
 };

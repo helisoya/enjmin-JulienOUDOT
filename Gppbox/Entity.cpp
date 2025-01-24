@@ -35,6 +35,11 @@ Entity::Entity(Game* game, EntityType type, int x, int y)
 	canJump = false;
 }
 
+bool Entity::IsAlive()
+{
+	return !dead;
+}
+
 float Entity::GetX()
 {
 	return (cx+xr) * C::GRID_SIZE;
@@ -151,8 +156,20 @@ void Entity::Update(float dt)
 
 void Entity::Draw(sf::RenderWindow& window)
 {
+	if (dead) return;
+
 	sprite.setPosition(GetX(), GetY());
 	window.draw(sprite);
+}
+
+void Entity::Kill()
+{
+	dead = true;
+}
+
+void Entity::Reset()
+{
+	dead = false;
 }
 
 bool Entity::CollidesWith(sf::Sprite other)

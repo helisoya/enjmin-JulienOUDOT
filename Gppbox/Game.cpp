@@ -10,6 +10,11 @@
 #include "Entity.h"
 #include "iostream"
 
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
+
 static int cols = 1280 / C::GRID_SIZE;
 static int lastLine = 720 / C::GRID_SIZE - 1;
 
@@ -46,6 +51,8 @@ Game::Game(sf::RenderWindow * win) {
 	player = new Entity(this, PLAYER, 0, 0);
 	entities.push_back(player);
 
+	elkSpawns.push_back(Vector2i(10, 5));
+	elkSpawns.push_back(Vector2i(13, 8));
 	entities.push_back(new Entity(this, ELK,10,5));
 	entities.push_back(new Entity(this, ELK,13,8));
 
@@ -54,6 +61,10 @@ Game::Game(sf::RenderWindow * win) {
 	deathRayLines[0].position = sf::Vector2f(0, 0);
 	deathRayLines[1].position = sf::Vector2f(0, 0);
 	drawDeathRay = false;
+
+	//view.reset(sf::FloatRect({ 0.f, 0.f }, { 300.f, 400.f }));
+	view.zoom(0.5f);
+	win->setView(view);
 }
 
 void Game::cacheWalls()
@@ -148,11 +159,14 @@ void Game::update(double dt) {
 	beforeParts.update(dt);
 	afterParts.update(dt);
 	for (Entity* entity : entities) {
+		if (!entity->IsAlive()) continue;
+
 		entity->Update(dt);
 		if (entity->GetType() != PLAYER && entity->CollidesWith(player->GetSprite())) {
-			std::cout << "Player should die" << std::endl;
+			player->Kill();
 		}
 	}
+	view.setCenter(Vector2f(player->GetX(), player->GetY()));
 	updateDeathLaser(dt);	
 }
 
@@ -185,6 +199,14 @@ void Game::updateDeathLaser(double dt)
 	deathRayLines[flip ? 1 : 0].position = sf::Vector2f(pX, pY);
 	deathRayLines[flip ? 0 : 1].position = sf::Vector2f(pX + (mX - pX) * ratioDeathRay, pY + (mY - pY) * ratioDeathRay);
 
+	// Check for collision with entities (Only the tip of the web)
+	int ratioX = playerX + (finalPosition.x - playerX) * ratioDeathRay;
+	int ratioY = playerY + (finalPosition.y - playerY) * ratioDeathRay;
+	for (Entity* entity : entities) {
+		if (entity->GetType() != PLAYER && entity->GetCX() == ratioX && entity->GetCY() == ratioY) {
+			entity->Kill();
+		}
+	}
 
 	// Behaviour when string is at max
 	if (ratioDeathRay >= 1.0f) {
@@ -193,8 +215,8 @@ void Game::updateDeathLaser(double dt)
 		}
 		else {
 			float dist = std::sqrt((mX - pX) * (mX - pX) + (mY - pY) * (mY - pY));
-			if (dist > C::GRID_SIZE * 3) {
-				player->AddForce((mX - pX) / 0.5f, (mY - pY) * 0.5f);
+			if (dist > C::GRID_SIZE * 6) {
+				player->AddForce((mX - pX) / 0.5f, (mY - pY) * 0.1f);
 			}
 		}
 	}
@@ -218,11 +240,6 @@ sf::Vector2f Game::bresenham(int x0, int x1, int y0, int y1)
 			deathRayWallPosition = sf::Vector2f(x0, y0);
 			break;
 		}
-		for (Entity* entity : entities) {
-			if (entity->GetType() != PLAYER && entity->GetCX() == x0 && entity->GetCY() == y0) {
-				std::cout << "Kill the Elk" << std::endl;
-			}
-		}
 
 		e2 = 2 * error;
 		if (e2 >= dy) {
@@ -237,40 +254,13 @@ sf::Vector2f Game::bresenham(int x0, int x1, int y0, int y1)
 		}
 	}
 
-	/*
-	int dx = x1 - x0;
-	int dy = y1 - y0;
-	int d = 2 * dy - dx;
-	int y = y0;
-	int x;
-
-	bool flipX = x1 < x0;
-	bool flipY = y1 < y0;
-
-	for (x = x0; flipX ? x >= x1 : x <= x1; flipX ? x-- : x++) {
-		if (isWall(x, y)) {
-			deathRayIsOnWall = true;
-			deathRayWallPosition = sf::Vector2f(x, y);
-			break;
-		}
-		for (Entity* entity : entities) {
-			if (entity->GetType() != PLAYER && entity->GetCX() == x && entity->GetCY() == y) {
-				std::cout << "Kill the Elk" << std::endl;
-			}
-		}
-
-		if (d > 0 && y != y1) {
-			y = y + (flipY ? -1 : 1);
-			d = d - 2 * dx;
-		}
-		d = d + 2 * dy;
-	}*/
-
 	return sf::Vector2f(x0,y0);
 }
 
  void Game::draw(sf::RenderWindow & win) {
 	if (closing) return;
+
+	win.setView(win.getDefaultView());
 
 	sf::RenderStates states = sf::RenderStates::Default;
 	sf::Shader * sh = &bgShader->sh;
@@ -283,6 +273,7 @@ sf::Vector2f Game::bresenham(int x0, int x1, int y0, int y1)
 
 	beforeParts.draw(win);
 
+	win.setView(view);
 	for (sf::RectangleShape & r : wallSprites)
 		win.draw(r);
 
@@ -303,6 +294,15 @@ void Game::onSpacePressed() {
 }
 
 
+bool Game::isEnnemySpawner(int cx, int cy)
+{
+	for (Vector2i& w : elkSpawns) {
+		if (w.x == cx && w.y == cy)
+			return true;
+	}
+	return false;
+}
+
 bool Game::isWall(int cx, int cy)
 {
 	for (Vector2i & w : walls) {
@@ -320,15 +320,56 @@ void Game::im()
 	int mapSize = 50;
 
 	if (Button("Save")) {
-
+		ofstream saveFile;
+		saveFile.open("save.txt");
+		for (Vector2i wall : walls) {
+			saveFile << wall.x << ";" << wall.y << ";" << "W" << "\n";
+		}
+		for (Vector2i elk : elkSpawns) {
+			saveFile << elk.x << ";" << elk.y << ";" << "E" << "\n";
+		}
+		saveFile.close();
 	}
 
 	if (Button("Load")) {
+		walls.clear();
+		elkSpawns.clear();
+		entities.clear();
+		entities.push_back(player);
+		player->Reset();
 
+		std::string line;
+
+		ifstream saveFile;
+		saveFile.open("save.txt");
+		while (getline(saveFile, line))
+		{
+			stringstream ss(line);
+			string t;
+			char del = ',';
+
+			getline(ss, t, ';');
+			int x = atoi(t.c_str());
+			getline(ss, t, ';');
+			int y = atoi(t.c_str());
+			getline(ss, t, ';');
+			char type = t.c_str()[0];
+
+			if (type == 'W') {
+				walls.push_back(Vector2i(x,y));
+			}
+			else if (type == 'E') {
+				elkSpawns.push_back(Vector2i(x, y));
+				entities.push_back(new Entity(this, ELK, x, y));
+			}
+		}
+		saveFile.close();
+
+		cacheWalls();
 	}
 
 	if (TreeNode("Walls")) {
-		Columns(mapSize, "mycolumns");
+		Columns(mapSize, "walls");
 		Separator();
 
 		static int selected = -1;
@@ -356,7 +397,30 @@ void Game::im()
 		TreePop();
 	}
 	if (TreeNode("Entities")) {
+		Columns(mapSize, "entities");
+		Separator();
 
+		static int selected = -1;
+		for (int y = 0; y < mapSize; y++)
+		{
+			for (int x = 0; x < mapSize; x++) {
+				PushID(mapSize * x + y);
+				if (Button(isEnnemySpawner(y, x) ? "#" : " ")) {
+					if (isEnnemySpawner(y, x)) {
+						elkSpawns.erase(find(elkSpawns.begin(), elkSpawns.end(), Vector2i(y, x)));
+					}
+					else {
+						elkSpawns.push_back(Vector2i(y, x));
+						entities.push_back(new Entity(this, ELK, y, x));
+					}
+				}
+				PopID();
+			}
+			ImGui::NextColumn();
+		}
+		Columns(1);
+		Separator();
+		TreePop();
 	}
 }
 
