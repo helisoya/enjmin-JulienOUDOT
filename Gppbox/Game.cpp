@@ -200,8 +200,44 @@ void Game::updateDeathLaser(double dt)
 	}
 }
 
+
+
 sf::Vector2f Game::bresenham(int x0, int x1, int y0, int y1)
 {
+
+	int dx = std::abs(x1 - x0);
+	int sx = x0 < x1 ? 1 : -1;
+	int dy = -std::abs(y1 - y0);
+	int sy = y0 < y1 ? 1 : -1;
+	int error = dx + dy;
+	int e2;
+
+	for (int i = 0; i < 150; i++) {
+		if (isWall(x0, y0)) {
+			deathRayIsOnWall = true;
+			deathRayWallPosition = sf::Vector2f(x0, y0);
+			break;
+		}
+		for (Entity* entity : entities) {
+			if (entity->GetType() != PLAYER && entity->GetCX() == x0 && entity->GetCY() == y0) {
+				std::cout << "Kill the Elk" << std::endl;
+			}
+		}
+
+		e2 = 2 * error;
+		if (e2 >= dy) {
+			if (x0 == x1) break;
+			error = error + dy;
+			x0 = x0 + sx;
+		}
+		if (e2 <= dx) {
+			if (y0 == y1) break;
+			error = error + dx;
+			y0 = y0 + sy;
+		}
+	}
+
+	/*
 	int dx = x1 - x0;
 	int dy = y1 - y0;
 	int d = 2 * dy - dx;
@@ -228,9 +264,9 @@ sf::Vector2f Game::bresenham(int x0, int x1, int y0, int y1)
 			d = d - 2 * dx;
 		}
 		d = d + 2 * dy;
-	}
+	}*/
 
-	return sf::Vector2f(x,y);
+	return sf::Vector2f(x0,y0);
 }
 
  void Game::draw(sf::RenderWindow & win) {
@@ -280,12 +316,47 @@ void Game::im()
 {
 	using namespace ImGui;
 	int hre = 0;
-	if (TreeNode("Walls")) {
-		for (auto& wall : walls) {
 
+	int mapSize = 50;
+
+	if (Button("Save")) {
+
+	}
+
+	if (Button("Load")) {
+
+	}
+
+	if (TreeNode("Walls")) {
+		Columns(mapSize, "mycolumns");
+		Separator();
+
+		static int selected = -1;
+		for (int y = 0; y < mapSize; y++)
+		{
+			for (int x = 0; x < mapSize; x++) {
+				
+
+				PushID(mapSize * x + y);
+				if (Button(isWall(y,x) ? "#" : " ")) {
+					if (isWall(y, x)) {
+						walls.erase(find(walls.begin(), walls.end(), Vector2i(y, x)));
+					}
+					else {
+						walls.push_back(Vector2i(y, x));
+					}
+					cacheWalls();
+				}
+				PopID();
+			}
+			ImGui::NextColumn();
 		}
+		Columns(1);
+		Separator();
+		TreePop();
 	}
 	if (TreeNode("Entities")) {
+
 	}
 }
 
