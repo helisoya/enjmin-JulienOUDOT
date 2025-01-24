@@ -1,5 +1,6 @@
 #include "Lib.hpp"
 #include <SFML/Graphics.hpp>
+#include "Game.hpp"
 
 //in secs
 
@@ -41,3 +42,4 @@ sf::Color Lib::makeFromHSV(float _h, float _s, float _v)
 
 	return sf::Color(RGB.x * 255.0, RGB.y * 255.0, RGB.z * 255.0);
 }
+

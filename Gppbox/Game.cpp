@@ -7,7 +7,8 @@
 #include "Game.hpp"
 
 #include "HotReloadShader.hpp"
-
+#include "Entity.h"
+#include "iostream"
 
 static int cols = 1280 / C::GRID_SIZE;
 static int lastLine = 720 / C::GRID_SIZE - 1;
@@ -41,6 +42,18 @@ Game::Game(sf::RenderWindow * win) {
 	walls.push_back(Vector2i(cols >>2, lastLine - 4));
 	walls.push_back(Vector2i((cols >> 2) + 1, lastLine - 4));
 	cacheWalls();
+
+	player = new Entity(this, PLAYER, 0, 0);
+	entities.push_back(player);
+
+	entities.push_back(new Entity(this, ELK,10,5));
+	entities.push_back(new Entity(this, ELK,13,8));
+
+
+	deathRayLines = sf::VertexArray(sf::LinesStrip, 2);
+	deathRayLines[0].position = sf::Vector2f(0, 0);
+	deathRayLines[1].position = sf::Vector2f(0, 0);
+	drawDeathRay = false;
 }
 
 void Game::cacheWalls()
@@ -75,20 +88,32 @@ void Game::pollInput(double dt) {
 
 	float lateralSpeed = 8.0;
 	float maxSpeed = 40.0;
-	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Q)) {
-
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
+		player->AddForce(-lateralSpeed,0);
 	}
 
-	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)) {
-
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
+		player->AddForce(lateralSpeed, 0);
 	}
 
-	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space)) {
-
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) {
+		upPressed = true;
+	}
+	else {
+		upPressed = false;
 	}
 
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::T)) {
-
+		if (!deathRayPressed) {
+			deathRayPressed = true;
+			drawDeathRay = true;
+			ratioDeathRay = 0.0f;
+			deathRayIsOnWall = false;
+		}
+	}
+	else {
+		deathRayPressed = false;
+		drawDeathRay = false;
 	}
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space)) {
 		if (!wasPressed) {
@@ -122,6 +147,90 @@ void Game::update(double dt) {
 
 	beforeParts.update(dt);
 	afterParts.update(dt);
+	for (Entity* entity : entities) {
+		entity->Update(dt);
+		if (entity->GetType() != PLAYER && entity->CollidesWith(player->GetSprite())) {
+			std::cout << "Player should die" << std::endl;
+		}
+	}
+	updateDeathLaser(dt);	
+}
+
+void Game::updateDeathLaser(double dt)
+{
+	// The death laser is now some sort of web slinger
+	// If it touches a wall, you can be propulsed towards it
+
+	if (!drawDeathRay) return;
+
+	if (ratioDeathRay < 1) ratioDeathRay += dt * 4;
+	if (ratioDeathRay > 1) ratioDeathRay = 1;
+
+	int raySize = 15;
+
+	bool flip = player->GetDirection() < 0;
+
+	float playerX = player->GetCX();
+	float playerY = player->GetCY();
+	float potentialX = playerX + (flip ? -raySize : raySize);
+	float potentialY = playerY + (upPressed ? - 15 : 0);
+
+	sf::Vector2f finalPosition = deathRayIsOnWall ? deathRayWallPosition : bresenham(playerX, potentialX, playerY, potentialY);
+
+	float pX = player->GetX() + 0.5f * C::GRID_SIZE;
+	float pY = player->GetY() + 0.5f * C::GRID_SIZE;
+	float mX = (finalPosition.x + 0.5f) * C::GRID_SIZE;
+	float mY = (finalPosition.y + 0.5f) * C::GRID_SIZE;
+ 
+	deathRayLines[flip ? 1 : 0].position = sf::Vector2f(pX, pY);
+	deathRayLines[flip ? 0 : 1].position = sf::Vector2f(pX + (mX - pX) * ratioDeathRay, pY + (mY - pY) * ratioDeathRay);
+
+
+	// Behaviour when string is at max
+	if (ratioDeathRay >= 1.0f) {
+		if (!deathRayIsOnWall) {
+			drawDeathRay = false;
+		}
+		else {
+			float dist = std::sqrt((mX - pX) * (mX - pX) + (mY - pY) * (mY - pY));
+			if (dist > C::GRID_SIZE * 3) {
+				player->AddForce((mX - pX) / 0.5f, (mY - pY) * 0.5f);
+			}
+		}
+	}
+}
+
+sf::Vector2f Game::bresenham(int x0, int x1, int y0, int y1)
+{
+	int dx = x1 - x0;
+	int dy = y1 - y0;
+	int d = 2 * dy - dx;
+	int y = y0;
+	int x;
+
+	bool flipX = x1 < x0;
+	bool flipY = y1 < y0;
+
+	for (x = x0; flipX ? x >= x1 : x <= x1; flipX ? x-- : x++) {
+		if (isWall(x, y)) {
+			deathRayIsOnWall = true;
+			deathRayWallPosition = sf::Vector2f(x, y);
+			break;
+		}
+		for (Entity* entity : entities) {
+			if (entity->GetType() != PLAYER && entity->GetCX() == x && entity->GetCY() == y) {
+				std::cout << "Kill the Elk" << std::endl;
+			}
+		}
+
+		if (d > 0 && y != y1) {
+			y = y + (flipY ? -1 : 1);
+			d = d - 2 * dx;
+		}
+		d = d + 2 * dy;
+	}
+
+	return sf::Vector2f(x,y);
 }
 
  void Game::draw(sf::RenderWindow & win) {
@@ -143,13 +252,18 @@ void Game::update(double dt) {
 
 	for (sf::RectangleShape& r : rects) 
 		win.draw(r);
-	
+
+	for (Entity* entity : entities) {
+		entity->Draw(win);
+	}
+
+	if(drawDeathRay) win.draw(deathRayLines);
 
 	afterParts.draw(win);
 }
 
 void Game::onSpacePressed() {
-	
+	player->Jump(7);
 }
 
 
@@ -164,6 +278,14 @@ bool Game::isWall(int cx, int cy)
 
 void Game::im()
 {
+	using namespace ImGui;
+	int hre = 0;
+	if (TreeNode("Walls")) {
+		for (auto& wall : walls) {
 
+		}
+	}
+	if (TreeNode("Entities")) {
+	}
 }
 
