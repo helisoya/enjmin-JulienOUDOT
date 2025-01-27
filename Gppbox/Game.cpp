@@ -97,24 +97,35 @@ static double g_tickTimer = 0.0;
 
 void Game::pollInput(double dt) {
 
+	// Get Gamepad Controls
+	bool joystickConnected = sf::Joystick::isConnected(0);
+	float joystickAxisX = joystickConnected ? sf::Joystick::getAxisPosition(0, sf::Joystick::X) : 0;
+	bool joystickUp = joystickConnected ? sf::Joystick::getAxisPosition(0, sf::Joystick::Y) < 0 : false;
+	bool joystickFireDeathLaser = joystickConnected ? sf::Joystick::isButtonPressed(0, 2) : false;
+	bool joystickJump = joystickConnected ? sf::Joystick::isButtonPressed(0, 0) : false;
+	bool joystickFireMissile = joystickConnected ? sf::Joystick::isButtonPressed(0, 1) : false;
+
 	float lateralSpeed = 8.0;
 	float maxSpeed = 40.0;
-	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
+
+	if (!player->IsAlive()) return;
+
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left) || joystickAxisX < -15) {
 		player->AddForce(-lateralSpeed,0);
 	}
 
-	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right) || joystickAxisX > 15) {
 		player->AddForce(lateralSpeed, 0);
 	}
 
-	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) {
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up) || joystickUp) {
 		upPressed = true;
 	}
 	else {
 		upPressed = false;
 	}
 
-	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::T)) {
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::T) || joystickFireDeathLaser) {
 		if (!deathRayPressed) {
 			deathRayPressed = true;
 			drawDeathRay = true;
@@ -126,7 +137,7 @@ void Game::pollInput(double dt) {
 		deathRayPressed = false;
 		drawDeathRay = false;
 	}
-	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space)) {
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space) || joystickJump) {
 		if (!wasPressed) {
 			onSpacePressed();
 			wasPressed = true;
@@ -135,7 +146,15 @@ void Game::pollInput(double dt) {
 	else {
 		wasPressed = false;
 	}
-
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Y) || joystickFireMissile) {
+		if (!missilePressed) {
+			entities.push_back(new Entity(this,MISSILE,player->GetCX(), player->GetCY()));
+			missilePressed = true;
+		}
+	}
+	else {
+		missilePressed = false;
+	}
 }
 
 static sf::VertexArray va;
@@ -162,11 +181,12 @@ void Game::update(double dt) {
 		if (!entity->IsAlive()) continue;
 
 		entity->Update(dt);
-		if (entity->GetType() != PLAYER && entity->CollidesWith(player->GetSprite())) {
+		if (entity->GetType() == ELK && entity->CollidesWith(player->GetSprite())) {
 			player->Kill();
 		}
 	}
 	view.setCenter(Vector2f(player->GetX(), player->GetY()));
+
 	updateDeathLaser(dt);	
 }
 
@@ -203,7 +223,7 @@ void Game::updateDeathLaser(double dt)
 	int ratioX = playerX + (finalPosition.x - playerX) * ratioDeathRay;
 	int ratioY = playerY + (finalPosition.y - playerY) * ratioDeathRay;
 	for (Entity* entity : entities) {
-		if (entity->GetType() != PLAYER && entity->GetCX() == ratioX && entity->GetCY() == ratioY) {
+		if (entity->GetType() == ELK && entity->GetCX() == ratioX && entity->GetCY() == ratioY) {
 			entity->Kill();
 		}
 	}
@@ -259,8 +279,8 @@ sf::Vector2f Game::bresenham(int x0, int x1, int y0, int y1)
 
  void Game::draw(sf::RenderWindow & win) {
 	if (closing) return;
-
-	win.setView(win.getDefaultView());
+	
+	if(!debugSeeAll) win.setView(view);
 
 	sf::RenderStates states = sf::RenderStates::Default;
 	sf::Shader * sh = &bgShader->sh;
@@ -273,7 +293,7 @@ sf::Vector2f Game::bresenham(int x0, int x1, int y0, int y1)
 
 	beforeParts.draw(win);
 
-	win.setView(view);
+	
 	for (sf::RectangleShape & r : wallSprites)
 		win.draw(r);
 
@@ -287,7 +307,20 @@ sf::Vector2f Game::bresenham(int x0, int x1, int y0, int y1)
 	if(drawDeathRay) win.draw(deathRayLines);
 
 	afterParts.draw(win);
+
+	win.setView(win.getDefaultView());
 }
+
+ void Game::ResetMap()
+ {
+	 player->Reset();
+	 player->SetPosition(playerSpawn.x,playerSpawn.y);
+	 entities.clear();
+	 entities.push_back(player);
+	 for (Vector2i spawner : elkSpawns) {
+		 entities.push_back(new Entity(this, ELK, spawner.x, spawner.y));
+	 }
+ }
 
 void Game::onSpacePressed() {
 	player->Jump(7);
@@ -317,8 +350,6 @@ void Game::im()
 	using namespace ImGui;
 	int hre = 0;
 
-	int mapSize = 50;
-
 	if (Button("Save")) {
 		ofstream saveFile;
 		saveFile.open("save.txt");
@@ -328,6 +359,7 @@ void Game::im()
 		for (Vector2i elk : elkSpawns) {
 			saveFile << elk.x << ";" << elk.y << ";" << "E" << "\n";
 		}
+		saveFile << playerSpawn.x << ";" << playerSpawn.y << ";" << "P" << "\n";
 		saveFile.close();
 	}
 
@@ -362,28 +394,51 @@ void Game::im()
 				elkSpawns.push_back(Vector2i(x, y));
 				entities.push_back(new Entity(this, ELK, x, y));
 			}
+			else if (type == 'P') {
+				playerSpawn = Vector2i(x, y);
+				player->SetPosition(x, y);
+			}
 		}
 		saveFile.close();
 
 		cacheWalls();
 	}
 
-	if (TreeNode("Walls")) {
-		Columns(mapSize, "walls");
+	if (Button("Reset Map")) {
+		ResetMap();
+	}
+
+	if (Button("Debug (See All)")) {
+		debugSeeAll = !debugSeeAll;
+	}
+
+	if (TreeNode("Map Editor")) {
+		Columns(cols, "walls");
 		Separator();
 
-		static int selected = -1;
-		for (int y = 0; y < mapSize; y++)
+		for (int y = 0; y < cols; y++)
 		{
-			for (int x = 0; x < mapSize; x++) {
-				
-
-				PushID(mapSize * x + y);
-				if (Button(isWall(y,x) ? "#" : " ")) {
+			for (int x = 0; x <= lastLine; x++) {
+				PushID(lastLine * x + y);
+				if (Button( isWall(y,x) ? "#" :  
+					(isEnnemySpawner(y,x) ? "E" : 
+						((y == playerSpawn.x && x == playerSpawn.y) ? "P" : " ")))) {
 					if (isWall(y, x)) {
+						// Erase wall, place ennemy
 						walls.erase(find(walls.begin(), walls.end(), Vector2i(y, x)));
+						elkSpawns.push_back(Vector2i(y, x));
+					}
+					else if (isEnnemySpawner(y, x)) {
+						// Erase ennemy spawner, place player spawn
+						elkSpawns.erase(find(elkSpawns.begin(), elkSpawns.end(), Vector2i(y, x)));
+						playerSpawn = Vector2i(y, x);
+					}
+					else if (y == playerSpawn.x && x == playerSpawn.y) {
+						// Erase player spawn
+						playerSpawn = Vector2i(0, 0);
 					}
 					else {
+						// Place wall
 						walls.push_back(Vector2i(y, x));
 					}
 					cacheWalls();
@@ -396,31 +451,10 @@ void Game::im()
 		Separator();
 		TreePop();
 	}
-	if (TreeNode("Entities")) {
-		Columns(mapSize, "entities");
-		Separator();
+}
 
-		static int selected = -1;
-		for (int y = 0; y < mapSize; y++)
-		{
-			for (int x = 0; x < mapSize; x++) {
-				PushID(mapSize * x + y);
-				if (Button(isEnnemySpawner(y, x) ? "#" : " ")) {
-					if (isEnnemySpawner(y, x)) {
-						elkSpawns.erase(find(elkSpawns.begin(), elkSpawns.end(), Vector2i(y, x)));
-					}
-					else {
-						elkSpawns.push_back(Vector2i(y, x));
-						entities.push_back(new Entity(this, ELK, y, x));
-					}
-				}
-				PopID();
-			}
-			ImGui::NextColumn();
-		}
-		Columns(1);
-		Separator();
-		TreePop();
-	}
+std::vector<Entity*>& Game::getEntities()
+{
+	return entities;
 }
 

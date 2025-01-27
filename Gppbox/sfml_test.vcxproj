@@ -176,6 +176,7 @@
     <ClCompile Include="app.cpp" />
     <ClCompile Include="Particle.cpp" />
     <ClCompile Include="sys.cpp" />
+    <ClCompile Include="Tweener.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app.h" />
@@ -193,6 +194,7 @@
     <ClInclude Include="Particle.hpp" />
     <ClInclude Include="ParticleMan.hpp" />
     <ClInclude Include="sys.hpp" />
+    <ClInclude Include="Tweener.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

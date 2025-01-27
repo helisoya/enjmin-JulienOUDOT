@@ -33,6 +33,7 @@ public:
 	ParticleMan afterParts;
 
 	Entity* player;
+	Vector2i playerSpawn;
 	std::vector<Entity*> entities;
 	std::vector<Vector2i> elkSpawns;
 
@@ -51,6 +52,7 @@ public:
 	void processInput(sf::Event ev);
 	bool wasPressed = false;
 	bool deathRayPressed = false;
+	bool missilePressed = false;
 	bool upPressed = false;
 	void pollInput(double dt);
 	void onSpacePressed();
@@ -62,7 +64,13 @@ public:
 
 	void draw(sf::RenderWindow& win);
 
+	void ResetMap();
+
 	bool isEnnemySpawner(int cx, int cy);
 	bool isWall(int cx, int cy);
 	void im();
+
+	bool debugSeeAll;
+
+	std::vector<Entity*>& getEntities();
 };

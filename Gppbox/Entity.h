@@ -1,12 +1,14 @@
 #pragma once
 
 #include "SFML/Graphics.hpp"
+#include "Tweener.h"
 
 class Game;
 
 enum EntityType {
 	PLAYER,
-	ELK
+	ELK,
+	MISSILE
 };
 
 class Entity
@@ -46,6 +48,9 @@ private:
 
 	bool dead;
 
+	// Tweener
+	Tweener tweener;
+
 public:
 	Entity(Game* game, EntityType type, int x, int y);
 
@@ -57,6 +62,8 @@ public:
 	float GetDirection();
 	EntityType GetType();
 	sf::Sprite& GetSprite();
+
+	void SetPosition(int x, int y);
 
 	void AddForce(int x,int y);
 	void Jump(int force);

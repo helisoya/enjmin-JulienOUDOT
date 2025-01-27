@@ -2,9 +2,10 @@
 #include "C.hpp"
 #include "Game.hpp"
 #include "iostream"
+#include "Tweener.h"
+#include "math.h"
 
-Entity::Entity(Game* game, EntityType type, int x, int y)
-{
+Entity::Entity(Game* game, EntityType type, int x, int y) : tweener(TweenerType::EASE, 1.0f) {
 	this->game = game;
 
 	cx = x;
@@ -13,8 +14,8 @@ Entity::Entity(Game* game, EntityType type, int x, int y)
 	xr = 0;
 	yr = 0;
 	
-	xx = 0;
-	yy = 0;
+	xx = x * C::GRID_SIZE;
+	yy = y * C::GRID_SIZE;
 	
 	dx = 0;
 	dy = 0;
@@ -27,10 +28,16 @@ Entity::Entity(Game* game, EntityType type, int x, int y)
 	this->type = type;
 	if(type == PLAYER) texture.loadFromFile("res/Player/Idle.png");
 	else if (type == ELK) texture.loadFromFile("res/Elk/Idle.png");
+	else if(type == MISSILE) texture.loadFromFile("res/Missile/Idle.png");
 
 	collisionSize = texture.getSize();
 	sprite.setTexture(texture);
 	sprite.setPosition(GetX(), GetY());
+
+	if (type == MISSILE) {
+		tweener.SetType(LINEAR);
+		tweener.SetSpeed(8);
+	}
 
 	canJump = false;
 }
@@ -42,11 +49,13 @@ bool Entity::IsAlive()
 
 float Entity::GetX()
 {
+	if (type == MISSILE) return xx;
 	return (cx+xr) * C::GRID_SIZE;
 }
 
 float Entity::GetY()
 {
+	if (type == MISSILE) return yy;
 	return (cy + yr) * C::GRID_SIZE;
 }
 
@@ -75,6 +84,14 @@ sf::Sprite& Entity::GetSprite()
 	return sprite;
 }
 
+void Entity::SetPosition(int x, int y)
+{
+	cx = x;
+	cy = y;
+	xr = 0;
+	yr = 0;
+}
+
 void Entity::AddForce(int x, int y)
 {
 	dx += x;
@@ -98,7 +115,83 @@ void Entity::Update(float dt)
 {
 	// AI
 	if (type == ELK) {
+		// Elk
 		if (dx == 0) dx = 4;
+	}
+	else if (type == MISSILE) { // Missile
+		std::vector<Entity*>& entities = game->getEntities();
+
+
+		// Check if destroyed / killed an elk
+		if (game->isWall((int)xx / C::GRID_SIZE, (int)yy / C::GRID_SIZE)) {
+			Kill();
+			return;
+		}
+		else {
+			for (Entity* entity : entities) {
+				if (entity->type == ELK) {
+					if (entity->CollidesWith(sprite)) {
+						Kill();
+						entity->Kill();
+						return;
+					}
+				}
+			}
+		}
+
+
+
+		// Missile only use tweener
+		if (tweener.HasReachedEnd()) {
+
+			// Search for a target
+			float closestXX = 0;
+			float closestYY = 0;
+			float closestDist = 0;
+			float ennemyX = 0;
+			float ennemyY = 0;
+			float dist = 0;
+			bool foundEnnemy = false;
+
+			for (Entity* entity : entities) {
+				if (entity->type == ELK && entity->IsAlive()) {
+					ennemyX = entity->GetX();
+					ennemyY = entity->GetY();
+					dist = sqrt( (ennemyX+xx) * (ennemyX + xx) + (ennemyY + yy) * (ennemyY + yy));
+					if (!foundEnnemy || closestDist > dist) {
+						std::cout << "New Closest Ennemy " << ennemyX << " " << ennemyY << std::endl;
+						closestXX = ennemyX;
+						closestYY = ennemyY;
+						closestDist = dist;
+						foundEnnemy = true;
+					}
+				}
+			}
+
+			// If no ennemy found, go up
+			if (!foundEnnemy) {
+				closestXX = xx;
+				closestYY = yy - 3 * C::GRID_SIZE;
+			}
+
+
+			std::cout << xx << " " << yy << " -> " << closestXX << " " << closestYY << std::endl;
+			tweener.SetPositions(sf::Vector2f(xx, yy), sf::Vector2f(closestXX, closestYY));
+			tweener.ResetProgress();
+		}
+
+		sf::Vector2f newPos = tweener.Step(dt);
+		sprite.setRotation(atan2(newPos.y - yy, newPos.x - xx) * 180.0 / M_PI);
+		
+		xx = newPos.x;
+		yy = newPos.y;
+
+		// Kill missile if has gone too far
+		if (xx < -C::GRID_SIZE || yy < -C::GRID_SIZE || xx > 1280 + C::GRID_SIZE || yy > 720 + C::GRID_SIZE) {
+			Kill();
+		}
+
+		return;
 	}
 
 
