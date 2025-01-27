@@ -33,6 +33,7 @@ public:
 	ParticleMan afterParts;
 
 	Entity* player;
+	Entity* drone;
 	Vector2i playerSpawn;
 	std::vector<Entity*> entities;
 	std::vector<Vector2i> elkSpawns;
@@ -44,6 +45,8 @@ public:
 	float ratioDeathRay;
 	bool deathRayIsOnWall;
 	sf::Vector2f deathRayWallPosition;
+
+	Entity* cachedBulletToCreate;
 
 	Game(sf::RenderWindow * win);
 
@@ -73,4 +76,5 @@ public:
 	bool debugSeeAll;
 
 	std::vector<Entity*>& getEntities();
+	Entity* getPlayer();
 };

@@ -43,8 +43,7 @@ bool Tweener::HasReachedEnd()
 
 sf::Vector2f Tweener::Step(float dt)
 {
-	float dist = std::sqrt(((startPosition.x+endPosition.x)* (startPosition.x + endPosition.x)) + ((startPosition.y + endPosition.y) * (startPosition.y + endPosition.y)));
-	
+
 	if (type == RANDOM) {
 		progress += dt * (std::rand() % 100 < 33 ? speed : 0);
 	}

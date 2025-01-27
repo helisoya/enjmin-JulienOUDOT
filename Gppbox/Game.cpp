@@ -49,7 +49,9 @@ Game::Game(sf::RenderWindow * win) {
 	cacheWalls();
 
 	player = new Entity(this, PLAYER, 0, 0);
+	drone = new Entity(this, DRONE, 0, 0);
 	entities.push_back(player);
+	entities.push_back(drone);
 
 	elkSpawns.push_back(Vector2i(10, 5));
 	elkSpawns.push_back(Vector2i(13, 8));
@@ -188,6 +190,11 @@ void Game::update(double dt) {
 	view.setCenter(Vector2f(player->GetX(), player->GetY()));
 
 	updateDeathLaser(dt);	
+
+	if (cachedBulletToCreate != nullptr) {
+		entities.push_back(cachedBulletToCreate);
+		cachedBulletToCreate = nullptr;
+	}
 }
 
 void Game::updateDeathLaser(double dt)
@@ -317,6 +324,7 @@ sf::Vector2f Game::bresenham(int x0, int x1, int y0, int y1)
 	 player->SetPosition(playerSpawn.x,playerSpawn.y);
 	 entities.clear();
 	 entities.push_back(player);
+	 entities.push_back(drone);
 	 for (Vector2i spawner : elkSpawns) {
 		 entities.push_back(new Entity(this, ELK, spawner.x, spawner.y));
 	 }
@@ -368,6 +376,7 @@ void Game::im()
 		elkSpawns.clear();
 		entities.clear();
 		entities.push_back(player);
+		entities.push_back(drone);
 		player->Reset();
 
 		std::string line;
@@ -397,6 +406,7 @@ void Game::im()
 			else if (type == 'P') {
 				playerSpawn = Vector2i(x, y);
 				player->SetPosition(x, y);
+				drone->SetPosition(x, y);
 			}
 		}
 		saveFile.close();
@@ -456,5 +466,10 @@ void Game::im()
 std::vector<Entity*>& Game::getEntities()
 {
 	return entities;
+}
+
+Entity* Game::getPlayer()
+{
+	return player;
 }
 

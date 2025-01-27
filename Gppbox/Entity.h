@@ -8,7 +8,9 @@ class Game;
 enum EntityType {
 	PLAYER,
 	ELK,
-	MISSILE
+	MISSILE,
+	DRONE,
+	BULLET
 };
 
 class Entity
@@ -50,6 +52,10 @@ private:
 
 	// Tweener
 	Tweener tweener;
+
+	// Drone
+	float droneFireCooldown;
+	float droneCurrentCooldown;
 
 public:
 	Entity(Game* game, EntityType type, int x, int y);
