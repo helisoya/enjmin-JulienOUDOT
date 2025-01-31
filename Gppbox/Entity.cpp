@@ -36,6 +36,10 @@ Entity::Entity(Game* game, EntityType type, int x, int y) : tweener(TweenerType:
 	sprite.setTexture(texture);
 	sprite.setPosition(GetX(), GetY());
 
+	muzzleFlareLength = 0.1f;
+	muzzleFlareTex.loadFromFile("res/MuzzleFlare/Idle.png");
+	muzzleFlare.setTexture(muzzleFlareTex);
+
 	if (type == MISSILE) {
 		tweener.SetType(LINEAR);
 		tweener.SetSpeed(5);
@@ -119,6 +123,11 @@ void Entity::Update(float dt)
 {
 	std::vector<Entity*>& entities = game->getEntities();
 
+
+	// Muzzle flare
+
+	if (currentMuzzleFlareLength > 0) currentMuzzleFlareLength -= dt;
+
 	// AI
 	if (type == ELK) {
 		// Elk
@@ -130,6 +139,7 @@ void Entity::Update(float dt)
 		// Check if destroyed / killed an elk
 		if (game->isWall((int)xx / C::GRID_SIZE, (int)yy / C::GRID_SIZE)) {
 			Kill();
+			game->addShakes(5);
 			return;
 		}
 		else {
@@ -251,6 +261,7 @@ void Entity::Update(float dt)
 				game->cachedBulletToCreate = bullet;
 				droneCurrentCooldown = droneFireCooldown;
 				game->addShakes(2);
+				currentMuzzleFlareLength = muzzleFlareLength;
 			}
 		}
 	}
@@ -330,8 +341,14 @@ void Entity::Draw(sf::RenderWindow& window)
 {
 	if (dead) return;
 
-	sprite.setPosition(GetX(), GetY());
+	float x = GetX();
+	float y = GetY();
+
+	muzzleFlare.setPosition(x,y+collisionSize.y/2);
+	sprite.setPosition(x, y);
 	window.draw(sprite);
+	
+	if (currentMuzzleFlareLength > 0) window.draw(muzzleFlare);
 }
 
 void Entity::Kill()

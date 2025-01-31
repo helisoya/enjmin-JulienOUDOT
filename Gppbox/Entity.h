@@ -57,6 +57,12 @@ private:
 	float droneFireCooldown;
 	float droneCurrentCooldown;
 
+	// Muzzle flare
+	sf::Texture muzzleFlareTex;
+	sf::Sprite muzzleFlare;
+	float muzzleFlareLength;
+	float currentMuzzleFlareLength;
+
 public:
 	Entity(Game* game, EntityType type, int x, int y);
 
