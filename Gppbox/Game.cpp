@@ -64,9 +64,13 @@ Game::Game(sf::RenderWindow * win) {
 	deathRayLines[1].position = sf::Vector2f(0, 0);
 	drawDeathRay = false;
 
-	//view.reset(sf::FloatRect({ 0.f, 0.f }, { 300.f, 400.f }));
+	viewSpeed = 150;
+	view.setCenter(0, 0);
 	view.zoom(0.5f);
 	win->setView(view);
+
+	shakesToDo = 0;
+	shakeStrength = 20;
 }
 
 void Game::cacheWalls()
@@ -187,7 +191,7 @@ void Game::update(double dt) {
 			player->Kill();
 		}
 	}
-	view.setCenter(Vector2f(player->GetX(), player->GetY()));
+	updateCameraPosition(dt);
 
 	updateDeathLaser(dt);	
 
@@ -247,6 +251,41 @@ void Game::updateDeathLaser(double dt)
 			}
 		}
 	}
+}
+
+void Game::updateCameraPosition(double dt)
+{
+	double px = player->GetX();
+	double py = player->GetY();
+	double dx = viewPosition.x < px ? 1 : -1;
+	double dy = viewPosition.y < py ? 1 : -1;
+
+	double moveAmount = dt * viewSpeed;
+
+
+	if (abs(px - viewPosition.x) <= moveAmount) viewPosition.x = px;
+	else viewPosition.x += moveAmount * dx;
+
+	if (abs(py - viewPosition.y) <= moveAmount) viewPosition.y = py;
+	else viewPosition.y += moveAmount * dy;
+
+	if (shakesToDo > 0 && shakeCooldown <= 0) {
+		shakesToDo--;
+		shakeCooldown = 0.05;
+
+		viewPosition.x += (rand() % shakeStrength) - shakeStrength/2;
+		viewPosition.y += (rand() % shakeStrength) - shakeStrength/2;
+	}
+	else {
+		shakeCooldown -= dt;
+	}
+
+	view.setCenter(viewPosition);
+}
+
+void Game::addShakes(int amount)
+{
+	shakesToDo += amount;
 }
 
 
@@ -322,6 +361,7 @@ sf::Vector2f Game::bresenham(int x0, int x1, int y0, int y1)
  {
 	 player->Reset();
 	 player->SetPosition(playerSpawn.x,playerSpawn.y);
+	 viewPosition = sf::Vector2f(playerSpawn.x * C::GRID_SIZE,playerSpawn.y * C::GRID_SIZE);
 	 entities.clear();
 	 entities.push_back(player);
 	 entities.push_back(drone);
@@ -407,6 +447,7 @@ void Game::im()
 				playerSpawn = Vector2i(x, y);
 				player->SetPosition(x, y);
 				drone->SetPosition(x, y);
+				viewPosition = sf::Vector2f(playerSpawn.x * C::GRID_SIZE, playerSpawn.y * C::GRID_SIZE);
 			}
 		}
 		saveFile.close();

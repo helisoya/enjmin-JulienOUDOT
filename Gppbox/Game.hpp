@@ -39,6 +39,11 @@ public:
 	std::vector<Vector2i> elkSpawns;
 
 	sf::View view;
+	sf::Vector2f viewPosition;
+	float viewSpeed;
+	int shakesToDo;
+	double shakeCooldown;
+	int shakeStrength;
 
 	sf::VertexArray deathRayLines;
 	bool drawDeathRay;
@@ -62,6 +67,8 @@ public:
 
 	void update(double dt);
 	void updateDeathLaser(double dt);
+	void updateCameraPosition(double dt);
+	void addShakes(int amount);
 
 	sf::Vector2f bresenham(int x0, int x1, int y0, int y1);
 

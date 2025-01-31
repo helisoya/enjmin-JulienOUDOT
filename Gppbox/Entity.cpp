@@ -136,6 +136,7 @@ void Entity::Update(float dt)
 			for (Entity* entity : entities) {
 				if (entity->type == ELK && entity->IsAlive()) {
 					if (entity->CollidesWith(sprite)) {
+						game->addShakes(5);
 						Kill();
 						entity->Kill();
 						return;
@@ -193,6 +194,7 @@ void Entity::Update(float dt)
 
 		// Kill missile if has gone too far
 		if (xx < -C::GRID_SIZE || yy < -C::GRID_SIZE || xx > 1280 + C::GRID_SIZE || yy > 720 + C::GRID_SIZE) {
+			game->addShakes(5);
 			Kill();
 		}
 
@@ -245,9 +247,10 @@ void Entity::Update(float dt)
 
 			if (foundEnnemy) {
 				Entity* bullet = new Entity(game, BULLET, cx, cy);
-				bullet->SetForce((closestXX - x0) / dist * 7, (closestYY - y0) / dist * 7);
+				bullet->SetForce((closestXX - x0) / dist * 16.0, (closestYY - y0) / dist * 16.0);
 				game->cachedBulletToCreate = bullet;
 				droneCurrentCooldown = droneFireCooldown;
+				game->addShakes(2);
 			}
 		}
 	}
