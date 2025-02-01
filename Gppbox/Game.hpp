@@ -51,7 +51,7 @@ public:
 	bool deathRayIsOnWall;
 	sf::Vector2f deathRayWallPosition;
 
-	Entity* cachedBulletToCreate;
+	std::vector<Entity*> entitiesToAddAfterUpdate;
 
 	Game(sf::RenderWindow * win);
 
@@ -61,6 +61,7 @@ public:
 	bool wasPressed = false;
 	bool deathRayPressed = false;
 	bool missilePressed = false;
+	bool sprayPressed = false;
 	bool upPressed = false;
 	void pollInput(double dt);
 	void onSpacePressed();

@@ -100,10 +100,19 @@ void Entity::SetPosition(int x, int y)
 	yr = 0;
 }
 
-void Entity::AddForce(int x, int y)
+void Entity::AddForce(int x, int y, bool ignoreClamp)
 {
 	dx += x;
 	dy += y;
+
+	if (!ignoreClamp) {
+		dx = std::clamp(dx, -maxDx, maxDx);
+		dy = std::clamp(dy, -maxDy, maxDy);
+
+		if (dx != 0) {
+			direction = dx < 0 ? -1 : 1;
+		}
+	}
 }
 
 void Entity::Jump(int force)
@@ -117,6 +126,10 @@ void Entity::SetForce(int x, int y)
 {
 	dx = x;
 	dy = y;
+
+	if (dx != 0) {
+		direction = dx < 0 ? -1 : 1;
+	}
 }
 
 void Entity::Update(float dt)
@@ -258,9 +271,10 @@ void Entity::Update(float dt)
 			if (foundEnnemy) {
 				Entity* bullet = new Entity(game, BULLET, cx, cy);
 				bullet->SetForce((closestXX - x0) / dist * 16.0, (closestYY - y0) / dist * 16.0);
-				game->cachedBulletToCreate = bullet;
+				game->entitiesToAddAfterUpdate.push_back(bullet);
 				droneCurrentCooldown = droneFireCooldown;
 				game->addShakes(2);
+				AddForce(-dx* 50, -dy*50, true);
 				currentMuzzleFlareLength = muzzleFlareLength;
 			}
 		}
@@ -272,6 +286,12 @@ void Entity::Update(float dt)
 		float y1 = y0 + dy;
 		sprite.setRotation(atan2(y1 - y0, x1 - x0) * 180.0 / M_PI);
 
+		// Destroy if Out of bounds
+		if (x0 < -C::GRID_SIZE || y0 < -C::GRID_SIZE || x0 > 1280 + C::GRID_SIZE || y0 > 720 + C::GRID_SIZE) {
+			Kill();
+			return;
+		}
+
 		// Check if killed an elk
 		for (Entity* entity : entities) {
 			if (entity->type == ELK && entity->IsAlive() && entity->CollidesWith(sprite)) {
@@ -280,15 +300,8 @@ void Entity::Update(float dt)
 				return;
 			}
 		}
-	}
 
 
-	//  Compute direction
-	dx = std::clamp(dx, -maxDx, maxDx);
-	dy = std::clamp(dy, -maxDy, maxDy);
-
-	if (dx != 0) {
-		direction = dx < 0 ? -1 : 1;
 	}
 
 	float tempX = dx * dt;

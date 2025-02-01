@@ -77,7 +77,7 @@ public:
 
 	void SetPosition(int x, int y);
 
-	void AddForce(int x,int y);
+	void AddForce(int x,int y, bool ignoreClamp = false);
 	void Jump(int force);
 	void SetForce(int x, int y);
 

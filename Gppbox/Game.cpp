@@ -14,6 +14,7 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include "math.h"
 
 static int cols = 1280 / C::GRID_SIZE;
 static int lastLine = 720 / C::GRID_SIZE - 1;
@@ -110,6 +111,7 @@ void Game::pollInput(double dt) {
 	bool joystickFireDeathLaser = joystickConnected ? sf::Joystick::isButtonPressed(0, 2) : false;
 	bool joystickJump = joystickConnected ? sf::Joystick::isButtonPressed(0, 0) : false;
 	bool joystickFireMissile = joystickConnected ? sf::Joystick::isButtonPressed(0, 1) : false;
+	bool joystickFireSpray = joystickConnected ? sf::Joystick::isButtonPressed(0, 3) : false;
 
 	float lateralSpeed = 8.0;
 	float maxSpeed = 40.0;
@@ -161,6 +163,31 @@ void Game::pollInput(double dt) {
 	else {
 		missilePressed = false;
 	}
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::U) || joystickFireSpray) {
+		if (!sprayPressed) {
+			player->AddForce(0, 50,true);
+
+			Entity* bullet;
+			float angle;
+			int amount = 10;
+			for (int i = 0; i < amount; i++) {
+				angle = i * (-180.0 / amount) * (M_PI / 180.0);
+				bullet = new Entity(this, BULLET, player->GetCX(), player->GetCY());
+				bullet->SetForce(
+					0.5 * cos(angle) * 20 ,
+					0.5 * sin(angle) * 20
+				);
+				entities.push_back(bullet);
+			}
+
+
+
+			sprayPressed = true;
+		}
+	}
+	else {
+		sprayPressed = false;
+	}
 }
 
 static sf::VertexArray va;
@@ -183,22 +210,40 @@ void Game::update(double dt) {
 
 	beforeParts.update(dt);
 	afterParts.update(dt);
-	for (Entity* entity : entities) {
-		if (!entity->IsAlive()) continue;
+
+	std::vector<int> idxToDestroy;
+	Entity* entity;
+
+	for (int i = 0; i < entities.size();i++) {
+		entity = entities[i];
+		if (!entity->IsAlive()) {
+			std::cout << i << " dead" << std::endl;
+			idxToDestroy.push_back(i);
+			continue;
+		}
 
 		entity->Update(dt);
 		if (entity->GetType() == ELK && entity->CollidesWith(player->GetSprite())) {
 			player->Kill();
 		}
 	}
+
+	for (int i = idxToDestroy.size() - 1; i >= 0; i--) {
+		entity = entities[i];
+		entities.erase(entities.begin() + idxToDestroy.at(i));
+		if (entity != player && entity != drone) delete entity;
+	}
+
 	updateCameraPosition(dt);
 
 	updateDeathLaser(dt);	
 
-	if (cachedBulletToCreate != nullptr) {
-		entities.push_back(cachedBulletToCreate);
-		cachedBulletToCreate = nullptr;
+
+	for (Entity* entity : entitiesToAddAfterUpdate) {
+		entities.push_back(entity);
 	}
+	entitiesToAddAfterUpdate.clear();
+
 }
 
 void Game::updateDeathLaser(double dt)
@@ -362,6 +407,13 @@ sf::Vector2f Game::bresenham(int x0, int x1, int y0, int y1)
 	 player->Reset();
 	 player->SetPosition(playerSpawn.x,playerSpawn.y);
 	 viewPosition = sf::Vector2f(playerSpawn.x * C::GRID_SIZE,playerSpawn.y * C::GRID_SIZE);
+
+	 for (int i = entities.size() - 1; i >= 0; i--) {
+		 Entity* entity = entities[i];
+		 entities.pop_back();
+		 if (entity != player && entity != drone) delete entity;
+	 }
+
 	 entities.clear();
 	 entities.push_back(player);
 	 entities.push_back(drone);
@@ -414,7 +466,14 @@ void Game::im()
 	if (Button("Load")) {
 		walls.clear();
 		elkSpawns.clear();
-		entities.clear();
+
+
+		for (int i = entities.size() - 1; i >= 0; i--) {
+			Entity* entity = entities[i];
+			entities.pop_back();
+			if (entity != player && entity != drone) delete entity;
+		}
+
 		entities.push_back(player);
 		entities.push_back(drone);
 		player->Reset();
