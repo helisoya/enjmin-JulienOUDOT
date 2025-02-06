@@ -235,9 +235,9 @@ void Entity::Update(float dt)
 
 		float dist = sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
 		
-		if (dist > C::GRID_SIZE && abs(dx) <= 0.05f && abs(dy) < 0.05f) {
+		if (dist > C::GRID_SIZE && abs(dx) <= 0.5f && abs(dy) < 0.5f) {
 			// Propulsion towards player
-			AddForce((x1 - x0) / dist * 5, (y1 - y0) / dist * 5);
+			AddForce((x1 - x0) / dist * 16, (y1 - y0) / dist * 16,true);
 			sprite.rotate(5 * dt);
 		}
 
@@ -274,7 +274,10 @@ void Entity::Update(float dt)
 				game->entitiesToAddAfterUpdate.push_back(bullet);
 				droneCurrentCooldown = droneFireCooldown;
 				game->addShakes(2);
-				AddForce(-dx* 50, -dy*50, true);
+
+				dist = sqrt(dx * dx + dy * dy);
+
+				AddForce(-(dx / dist) * 8, -(dy/dist) * 8, true);
 				currentMuzzleFlareLength = muzzleFlareLength;
 			}
 		}
@@ -343,11 +346,20 @@ void Entity::Update(float dt)
 	while (yr > 1.0f) { yr--; cy++; }
 	while (yr < 0.0f) { yr++; cy--; canJump = false;}
 
-	// Compute drag (if not AI)
+	// Compute drag
 
-	if(type == PLAYER || type == DRONE) dx *= 0.97f * dt;
-	if (type == PLAYER || type == ELK) dy += C::GRAVITY_VALUE * dt;
-	else if (type == DRONE) dy *= 0.97f * dt;
+	double rate = 1.0 / dt;
+	double dfr = 60.0f / rate;
+
+	float friction = static_cast<float>(std::pow(0.97f, dfr));
+
+	if(type == PLAYER || type == DRONE) dx *= friction;
+	if (type == PLAYER || type == ELK) {
+		dy += C::GRAVITY_VALUE * dt;
+		dy = std::clamp(dy, -maxDy, maxDy);
+	}
+	else if (type == BULLET) dy += C::GRAVITY_VALUE * dt * 0.5f;
+	else if (type == DRONE) dy *= friction;
 }
 
 void Entity::Draw(sf::RenderWindow& window)

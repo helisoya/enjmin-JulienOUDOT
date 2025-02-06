@@ -38,13 +38,15 @@ static HotReloadShader * blurShader = nullptr;
 static std::array<double, 60> dts;
 static int curDts = 0;
 
+
 int main()
 {
+
     cout << "Hello World!\n";
 	
     //sf::RenderWindow window(sf::VideoMode(1920, 1080,32), "SFML works!");
     //sf::RenderWindow window(sf::VideoMode(800, 600,32), "SFML works!");
-    sf::RenderWindow window(sf::VideoMode(1280, 720,32), "SFML works!");
+    sf::RenderWindow window(sf::VideoMode(1280, 720,32), "Spiderman VS Elks");
 	window.setVerticalSyncEnabled(false);
     Font font;
 

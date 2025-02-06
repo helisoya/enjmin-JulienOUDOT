@@ -166,6 +166,7 @@ void Game::pollInput(double dt) {
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::U) || joystickFireSpray) {
 		if (!sprayPressed) {
 			player->AddForce(0, 50,true);
+			addShakes(2);
 
 			Entity* bullet;
 			float angle;
