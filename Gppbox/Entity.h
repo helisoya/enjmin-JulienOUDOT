@@ -58,6 +58,7 @@ private:
 	float droneCurrentCooldown;
 
 	// Muzzle flare
+	bool muzzleFlareActive;
 	sf::Texture muzzleFlareTex;
 	sf::Sprite muzzleFlare;
 	float muzzleFlareLength;

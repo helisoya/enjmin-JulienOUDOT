@@ -36,6 +36,7 @@ Entity::Entity(Game* game, EntityType type, int x, int y) : tweener(TweenerType:
 	sprite.setTexture(texture);
 	sprite.setPosition(GetX(), GetY());
 
+	muzzleFlareActive = type == DRONE;
 	muzzleFlareLength = 0.1f;
 	muzzleFlareTex.loadFromFile("res/MuzzleFlare/Idle.png");
 	muzzleFlare.setTexture(muzzleFlareTex);
@@ -270,7 +271,7 @@ void Entity::Update(float dt)
 
 			if (foundEnnemy) {
 				Entity* bullet = new Entity(game, BULLET, cx, cy);
-				bullet->SetForce((closestXX - x0) / dist * 16.0, (closestYY - y0) / dist * 16.0);
+				bullet->SetForce((closestXX - x0) / dist * 32.0, (closestYY - y0) / dist * .0);
 				game->entitiesToAddAfterUpdate.push_back(bullet);
 				droneCurrentCooldown = droneFireCooldown;
 				game->addShakes(2);
@@ -373,7 +374,7 @@ void Entity::Draw(sf::RenderWindow& window)
 	sprite.setPosition(x, y);
 	window.draw(sprite);
 	
-	if (currentMuzzleFlareLength > 0) window.draw(muzzleFlare);
+	if (muzzleFlareActive && currentMuzzleFlareLength > 0) window.draw(muzzleFlare);
 }
 
 void Entity::Kill()
