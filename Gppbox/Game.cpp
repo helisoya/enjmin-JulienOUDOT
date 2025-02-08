@@ -72,6 +72,9 @@ Game::Game(sf::RenderWindow * win) {
 
 	shakesToDo = 0;
 	shakeStrength = 20;
+
+	inEditor = false;
+	editorType = WALL;
 }
 
 void Game::cacheWalls()
@@ -115,6 +118,11 @@ void Game::pollInput(double dt) {
 
 	float lateralSpeed = 8.0;
 	float maxSpeed = 40.0;
+
+	if (inEditor) {
+		pollInputEditor(dt);
+		return;
+	}
 
 	if (!player->IsAlive()) return;
 
@@ -191,6 +199,49 @@ void Game::pollInput(double dt) {
 	}
 }
 
+void Game::pollInputEditor(double dt)
+{
+	Vector2i mousePos = sf::Mouse::getPosition(*win);
+	
+	ImVec2 imPos = ImGui::GetWindowPos();
+
+	if (mousePos.x >= imPos.x && mousePos.x <= imPos.x + ImGui::GetWindowWidth() &&
+		mousePos.y >= imPos.y && mousePos.y <= imPos.y + ImGui::GetWindowHeight()) return;
+
+	int x = mousePos.x / C::GRID_SIZE;
+	int y = mousePos.y / C::GRID_SIZE;
+
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num1)) editorType = WALL;
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num2)) editorType = ENNEMY;
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num3)) editorType = PLAYERSPAWN;
+
+	if (sf::Mouse::isButtonPressed(sf::Mouse::Left)) {
+		if (editorType == WALL && !isWall(x, y)) {
+			std::cout << "Pushing at " << x << " " << y << std::endl;
+			walls.push_back(Vector2i(x,y));
+			cacheWalls();
+		}else if (editorType == ELK && !isElk(x,y)) {
+			elkSpawns.push_back(Vector2i(x, y));
+			entities.push_back(new Entity(this, ELK, x, y));
+		}
+		else if (editorType == PLAYERSPAWN) {
+			playerSpawn = Vector2i(x, y);
+			player->SetPosition(x, y);
+			drone->SetPosition(x, y);
+		}
+	}
+	else if (sf::Mouse::isButtonPressed(sf::Mouse::Right)) {
+		if (editorType == WALL && isWall(x, y)) {
+			std::cout << "Erasing at " << x << " " << y << std::endl;
+			walls.erase(find(walls.begin(), walls.end(), Vector2i(x, y)));
+			cacheWalls();
+		}
+		else if (editorType == ELK && isElk(x, y)) {
+			elkSpawns.erase(find(elkSpawns.begin(), elkSpawns.end(), Vector2i(x, y)));
+		}
+	}
+}
+
 static sf::VertexArray va;
 static RenderStates vaRs;
 static std::vector<sf::RectangleShape> rects;
@@ -215,29 +266,34 @@ void Game::update(double dt) {
 	std::vector<int> idxToDestroy;
 	Entity* entity;
 
-	for (int i = 0; i < entities.size();i++) {
-		entity = entities[i];
-		if (!entity->IsAlive()) {
-			std::cout << i << " dead" << std::endl;
-			idxToDestroy.push_back(i);
-			continue;
+
+	if (!inEditor) {
+		for (int i = 0; i < entities.size(); i++) {
+			entity = entities[i];
+			if (!entity->IsAlive()) {
+				std::cout << i << " dead" << std::endl;
+				idxToDestroy.push_back(i);
+				continue;
+			}
+
+			entity->Update(dt);
+			if (entity->GetType() == ELK && entity->CollidesWith(player->GetSprite())) {
+				player->Kill();
+			}
 		}
 
-		entity->Update(dt);
-		if (entity->GetType() == ELK && entity->CollidesWith(player->GetSprite())) {
-			player->Kill();
+		for (int i = idxToDestroy.size() - 1; i >= 0; i--) {
+			entity = entities[i];
+			entities.erase(entities.begin() + idxToDestroy.at(i));
+			if (entity != player && entity != drone) delete entity;
 		}
+		updateDeathLaser(dt);
 	}
 
-	for (int i = idxToDestroy.size() - 1; i >= 0; i--) {
-		entity = entities[i];
-		entities.erase(entities.begin() + idxToDestroy.at(i));
-		if (entity != player && entity != drone) delete entity;
-	}
 
 	updateCameraPosition(dt);
 
-	updateDeathLaser(dt);	
+	
 
 
 	for (Entity* entity : entitiesToAddAfterUpdate) {
@@ -263,7 +319,7 @@ void Game::updateDeathLaser(double dt)
 
 	float playerX = player->GetCX();
 	float playerY = player->GetCY();
-	float potentialX = playerX + (flip ? -raySize : raySize);
+	float potentialX = playerX + (flip ? -raySize : raySize) * (upPressed ? 0.5f : 1.0f);
 	float potentialY = playerY + (upPressed ? - 15 : 0);
 
 	sf::Vector2f finalPosition = deathRayIsOnWall ? deathRayWallPosition : bresenham(playerX, potentialX, playerY, potentialY);
@@ -396,6 +452,15 @@ sf::Vector2f Game::bresenham(int x0, int x1, int y0, int y1)
 		entity->Draw(win);
 	}
 
+	if (inEditor) {
+		for (Vector2i& spawner : elkSpawns) {
+			sf::RectangleShape spawnRects(Vector2f(16, 16));
+			spawnRects.setPosition((float)spawner.x * C::GRID_SIZE, (float)spawner.y * C::GRID_SIZE);
+			spawnRects.setFillColor(sf::Color(255,255,255,255));
+			win.draw(spawnRects);
+		}
+	}
+
 	if(drawDeathRay) win.draw(deathRayLines);
 
 	afterParts.draw(win);
@@ -407,6 +472,7 @@ sf::Vector2f Game::bresenham(int x0, int x1, int y0, int y1)
  {
 	 player->Reset();
 	 player->SetPosition(playerSpawn.x,playerSpawn.y);
+	 drone->SetPosition(playerSpawn.x, playerSpawn.y);
 	 viewPosition = sf::Vector2f(playerSpawn.x * C::GRID_SIZE,playerSpawn.y * C::GRID_SIZE);
 
 	 for (int i = entities.size() - 1; i >= 0; i--) {
@@ -441,6 +507,15 @@ bool Game::isWall(int cx, int cy)
 {
 	for (Vector2i & w : walls) {
 		if (w.x == cx && w.y == cy)
+			return true;
+	}
+	return false;
+}
+
+bool Game::isElk(int cx, int cy)
+{
+	for (Vector2i& e : elkSpawns) {
+		if (e.x == cx && e.y == cy)
 			return true;
 	}
 	return false;
@@ -523,44 +598,9 @@ void Game::im()
 		debugSeeAll = !debugSeeAll;
 	}
 
-	if (TreeNode("Map Editor")) {
-		Columns(cols, "walls");
-		Separator();
-
-		for (int y = 0; y < cols; y++)
-		{
-			for (int x = 0; x <= lastLine; x++) {
-				PushID(lastLine * x + y);
-				if (Button( isWall(y,x) ? "#" :  
-					(isEnnemySpawner(y,x) ? "E" : 
-						((y == playerSpawn.x && x == playerSpawn.y) ? "P" : " ")))) {
-					if (isWall(y, x)) {
-						// Erase wall, place ennemy
-						walls.erase(find(walls.begin(), walls.end(), Vector2i(y, x)));
-						elkSpawns.push_back(Vector2i(y, x));
-					}
-					else if (isEnnemySpawner(y, x)) {
-						// Erase ennemy spawner, place player spawn
-						elkSpawns.erase(find(elkSpawns.begin(), elkSpawns.end(), Vector2i(y, x)));
-						playerSpawn = Vector2i(y, x);
-					}
-					else if (y == playerSpawn.x && x == playerSpawn.y) {
-						// Erase player spawn
-						playerSpawn = Vector2i(0, 0);
-					}
-					else {
-						// Place wall
-						walls.push_back(Vector2i(y, x));
-					}
-					cacheWalls();
-				}
-				PopID();
-			}
-			ImGui::NextColumn();
-		}
-		Columns(1);
-		Separator();
-		TreePop();
+	if (Button("Editor")) {
+		inEditor = !inEditor;
+		debugSeeAll = inEditor;
 	}
 }
 

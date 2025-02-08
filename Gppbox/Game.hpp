@@ -13,6 +13,12 @@
 
 using namespace sf;
 
+enum EditorType {
+	WALL,
+	ENNEMY,
+	PLAYERSPAWN
+};
+
 class HotReloadShader;
 class Entity;
 class Game {
@@ -37,6 +43,8 @@ public:
 	Vector2i playerSpawn;
 	std::vector<Entity*> entities;
 	std::vector<Vector2i> elkSpawns;
+	bool inEditor;
+	EditorType editorType;
 
 	sf::View view;
 	sf::Vector2f viewPosition;
@@ -64,6 +72,7 @@ public:
 	bool sprayPressed = false;
 	bool upPressed = false;
 	void pollInput(double dt);
+	void pollInputEditor(double dt);
 	void onSpacePressed();
 
 	void update(double dt);
@@ -79,6 +88,7 @@ public:
 
 	bool isEnnemySpawner(int cx, int cy);
 	bool isWall(int cx, int cy);
+	bool isElk(int cx, int cy);
 	void im();
 
 	bool debugSeeAll;
