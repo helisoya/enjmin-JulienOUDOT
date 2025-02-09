@@ -270,15 +270,15 @@ void Entity::Update(float dt)
 
 
 			if (foundEnnemy) {
+				float forceX = (closestXX - x0) / dist;
+				float forceY = (closestYY - y0) / dist;
 				Entity* bullet = new Entity(game, BULLET, cx, cy);
-				bullet->SetForce((closestXX - x0) / dist * 32.0, (closestYY - y0) / dist * .0);
+				bullet->SetForce(forceX * 32.0, forceY * 32.0);
 				game->entitiesToAddAfterUpdate.push_back(bullet);
 				droneCurrentCooldown = droneFireCooldown;
 				game->addShakes(2);
 
-				dist = sqrt(dx * dx + dy * dy);
-
-				AddForce(-(dx / dist) * 8, -(dy/dist) * 8, true);
+				AddForce(-forceX * 4, -forceY * 4, true);
 				currentMuzzleFlareLength = muzzleFlareLength;
 			}
 		}
