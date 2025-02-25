@@ -352,7 +352,7 @@ void Entity::Update(float dt)
 	double rate = 1.0 / dt;
 	double dfr = 60.0f / rate;
 
-	float friction = static_cast<float>(std::pow(0.97f, dfr));
+	float friction = static_cast<float>(std::pow(0.92f, dfr));
 
 	if(type == PLAYER || type == DRONE) dx *= friction;
 	if (type == PLAYER || type == ELK) {

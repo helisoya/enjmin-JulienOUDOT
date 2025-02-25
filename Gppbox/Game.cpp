@@ -526,6 +526,21 @@ void Game::im()
 	using namespace ImGui;
 	int hre = 0;
 
+	if (ImGui::CollapsingHeader("Controls")) {
+		ImGui::Text("Arrows : Movements");
+		ImGui::Text("Space : Jump");
+		ImGui::Text("T : Shoot webs(Replaces the laser, can pull you if pressed and it hits a wall)");
+		ImGui::Text("y : Guided Missile");
+		ImGui::Text("U : Spray Attack");
+
+		ImGui::Text("");
+		ImGui::Text("Left Click : Place things in the editor");
+		ImGui::Text("Right Click : Remove things in the editor");
+		ImGui::Text("1 : Place walls in the editor");
+		ImGui::Text("2 : Place ennemies in the editor");
+		ImGui::Text("3 : Change the player spawn in the editor");
+	}
+
 	if (Button("Save")) {
 		ofstream saveFile;
 		saveFile.open("save.txt");
